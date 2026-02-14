@@ -1,0 +1,56 @@
+services:
+  pgdatabase:
+    image: postgres:18
+    container_name: pgdatabase
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: ny_taxi
+    ports:
+      - "5432:5432"
+    volumes:
+      # NOTE: Correct Postgres data dir is /var/lib/postgresql/data
+      - ny_taxi_postgres_data:/var/lib/postgresql
+
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8085:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - pgdatabase
+
+
+  data-ingestion:
+    build:
+      context: ./pipeline
+      dockerfile: Dockerfile
+    container_name: data-ingestion
+    environment:
+      PG_USER: root
+      PG_PASS: root
+      PG_HOST: pgdatabase
+      PG_PORT: "5432"
+      PG_DB: ny_taxi
+    depends_on:
+      pgdatabase:
+        condition: service_started
+    command: >
+      sh -c "sleep 5 && 
+      python ingest_data.py 
+      --pg-user=root 
+      --pg-pass=root 
+      --pg-host=pgdatabase 
+      --pg-port=5432 
+      --pg-db=ny_taxi 
+      --target-table=yellow_taxi_trip"
+    
+volumes:
+  ny_taxi_postgres_data:
+  pgadmin_data:
